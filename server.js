@@ -36,7 +36,7 @@ function saveMessages(messages) {
 
 // ========== 中间件 ==========
 app.use(express.json({ limit: "1mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(__dirname));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 // 图片上传配置
