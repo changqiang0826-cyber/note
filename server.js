@@ -1,56 +1,89 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ========== 配置 ==========
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "happy2026"; // 管理密码，部署时可通过环境变量修改
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "happy2026";
+const MAX_IMAGE_SIZE = 800 * 1024; // 800KB (base64 stored in DB)
 
-// ========== 数据存储 ==========
-const DATA_DIR = path.join(__dirname, "data");
-const UPLOAD_DIR = path.join(__dirname, "data", "uploads");
-const MSG_FILE = path.join(DATA_DIR, "messages.json");
+// Supabase 配置（通过环境变量设置）
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-// 确保目录存在
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-function loadMessages() {
-  try {
-    if (fs.existsSync(MSG_FILE)) {
-      return JSON.parse(fs.readFileSync(MSG_FILE, "utf-8"));
-    }
-  } catch (e) {
-    console.error("读取消息失败:", e);
-  }
-  return [];
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.warn("⚠️ 未设置 SUPABASE_URL 和 SUPABASE_KEY 环境变量！");
 }
 
-function saveMessages(messages) {
-  fs.writeFileSync(MSG_FILE, JSON.stringify(messages, null, 2), "utf-8");
+// ========== Supabase REST API 封装 ==========
+async function supabaseQuery(table, method, options = {}) {
+  let url = `${SUPABASE_URL}/rest/v1/${table}`;
+  const headers = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": `Bearer ${SUPABASE_KEY}`,
+    "Content-Type": "application/json",
+    "Prefer": method === "POST" ? "return=representation" : undefined,
+  };
+  // 清理 undefined headers
+  Object.keys(headers).forEach(k => headers[k] === undefined && delete headers[k]);
+
+  if (options.query) url += `?${options.query}`;
+
+  const fetchOpts = { method, headers };
+  if (options.body) fetchOpts.body = JSON.stringify(options.body);
+
+  const res = await fetch(url, fetchOpts);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase error: ${res.status} ${err}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function loadMessages() {
+  try {
+    const data = await supabaseQuery("messages", "GET", {
+      query: "select=*&order=timestamp.desc"
+    });
+    return data || [];
+  } catch (e) {
+    console.error("加载消息失败:", e.message);
+    return [];
+  }
+}
+
+async function saveMessage(msg) {
+  try {
+    await supabaseQuery("messages", "POST", { body: msg });
+    return true;
+  } catch (e) {
+    console.error("保存消息失败:", e.message);
+    return false;
+  }
+}
+
+async function deleteMessage(id) {
+  try {
+    await supabaseQuery("messages", "DELETE", {
+      query: `id=eq.${encodeURIComponent(id)}`
+    });
+    return true;
+  } catch (e) {
+    console.error("删除消息失败:", e.message);
+    return false;
+  }
 }
 
 // ========== 中间件 ==========
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(express.static(__dirname));
-app.use("/uploads", express.static(UPLOAD_DIR));
 
-// 图片上传配置
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    const name = Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + ext;
-    cb(null, name);
-  },
-});
-
+// 图片上传（转 base64 存数据库）
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_IMAGE_SIZE },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
@@ -60,9 +93,9 @@ const upload = multer({
 
 // ========== API 路由 ==========
 
-// 获取留言（公开 or 全部）
-app.get("/api/messages", (req, res) => {
-  const messages = loadMessages();
+// 获取留言
+app.get("/api/messages", async (req, res) => {
+  const messages = await loadMessages();
   const isAdmin = req.query.admin === ADMIN_PASSWORD;
   if (isAdmin) {
     res.json({ messages, isAdmin: true });
@@ -73,8 +106,8 @@ app.get("/api/messages", (req, res) => {
 });
 
 // 获取统计
-app.get("/api/stats", (req, res) => {
-  const messages = loadMessages();
+app.get("/api/stats", async (req, res) => {
+  const messages = await loadMessages();
   res.json({
     total: messages.length,
     public: messages.filter((m) => m.mode === "public").length,
@@ -83,7 +116,7 @@ app.get("/api/stats", (req, res) => {
 });
 
 // 发送留言
-app.post("/api/messages", upload.single("image"), (req, res) => {
+app.post("/api/messages", upload.single("image"), async (req, res) => {
   try {
     const { name, text, mode } = req.body;
 
@@ -94,13 +127,19 @@ app.post("/api/messages", upload.single("image"), (req, res) => {
       return res.status(400).json({ error: "公开留言请填写名字" });
     }
 
-    const messages = loadMessages();
+    // 图片转 base64
+    let imageData = null;
+    if (req.file) {
+      const base64 = req.file.buffer.toString("base64");
+      imageData = `data:${req.file.mimetype};base64,${base64}`;
+    }
+
     const msg = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name: name ? name.trim() : "匿名来客",
       text: text.trim(),
       mode: mode === "anonymous" ? "anonymous" : "public",
-      image: req.file ? "/uploads/" + req.file.filename : null,
+      image: imageData,
       time: new Date().toLocaleString("zh-CN", {
         timeZone: "Asia/Shanghai",
         year: "numeric",
@@ -112,10 +151,12 @@ app.post("/api/messages", upload.single("image"), (req, res) => {
       timestamp: Date.now(),
     };
 
-    messages.unshift(msg); // 新消息在前
-    saveMessages(messages);
-
-    res.json({ success: true, message: msg });
+    const saved = await saveMessage(msg);
+    if (saved) {
+      res.json({ success: true, message: msg });
+    } else {
+      res.status(500).json({ error: "保存失败，请重试" });
+    }
   } catch (e) {
     console.error("发送留言失败:", e);
     res.status(500).json({ error: "服务器错误" });
@@ -133,30 +174,24 @@ app.post("/api/auth", (req, res) => {
 });
 
 // 删除留言（管理员）
-app.delete("/api/messages/:id", (req, res) => {
+app.delete("/api/messages/:id", async (req, res) => {
   const { password } = req.body;
   if (password !== ADMIN_PASSWORD) {
     return res.status(401).json({ error: "需要管理员权限" });
   }
-
-  let messages = loadMessages();
-  const target = messages.find((m) => m.id === req.params.id);
-
-  if (target && target.image) {
-    const imgPath = path.join(__dirname, target.image);
-    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+  const deleted = await deleteMessage(req.params.id);
+  if (deleted) {
+    res.json({ success: true });
+  } else {
+    res.status(500).json({ error: "删除失败" });
   }
-
-  messages = messages.filter((m) => m.id !== req.params.id);
-  saveMessages(messages);
-  res.json({ success: true });
 });
 
 // multer 错误处理
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(400).json({ error: "图片大小不能超过2MB" });
+      return res.status(400).json({ error: "图片大小不能超过800KB" });
     }
     return res.status(400).json({ error: "上传失败: " + err.message });
   }
@@ -170,4 +205,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🎂 生日留言板已启动: http://localhost:${PORT}`);
   console.log(`🔐 管理密码: ${ADMIN_PASSWORD}`);
+  console.log(`📦 Supabase: ${SUPABASE_URL ? "已连接" : "未配置"}`);
 });
