@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>戗の留言板</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
+
+  :root {
+    --bg: #FAFAFA; --card: #FFFFFF; --text: #262626; --text2: #8E8E8E;
+    --border: #DBDBDB; --hover: #F5F5F5; --anon-bg: #F9F9F9;
+    --like: #ED4956; --reply-bg: #FAFAFA;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Noto Sans SC", -apple-system, "Helvetica Neue", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  .header { text-align: center; padding: 60px 20px 40px; position: relative; border-bottom: 1px solid var(--border); background: #fff; }
+  .header h1 { font-family: "Playfair Display", serif; font-size: clamp(32px, 6vw, 48px); font-weight: 600; color: var(--text); letter-spacing: 2px; margin-bottom: 8px; }
+  .header p { color: var(--text2); font-size: 14px; font-weight: 300; letter-spacing: 1px; }
+  .admin-btn { position: absolute; top: 20px; right: 20px; background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; color: var(--text2); transition: .2s; font-family: inherit; }
+  .admin-btn:hover { border-color: var(--text); color: var(--text); }
+  .admin-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+
+  .container { max-width: 640px; margin: 0 auto; padding: 28px 16px 80px; }
+
+  /* Compose */
+  .compose { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); margin-bottom: 32px; }
+  .compose-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .c-input, .compose textarea, .compose select {
+    padding: 11px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;
+    font-family: inherit; transition: .2s; background: var(--bg); color: var(--text);
+  }
+  .c-input:focus, .compose textarea:focus { outline: none; border-color: var(--text); }
+  .c-input { flex: 1; min-width: 140px; }
+  .compose select { font-weight: 500; cursor: pointer; }
+  .compose select.anon { background: var(--anon-bg); color: var(--text2); }
+  .compose textarea { width: 100%; resize: vertical; line-height: 1.8; min-height: 80px; }
+  .compose-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 10px; }
+  .img-label { padding: 8px 16px; border-radius: 8px; border: 1px dashed var(--border); cursor: pointer; font-size: 13px; color: var(--text2); display: flex; align-items: center; gap: 6px; transition: .2s; }
+  .img-label:hover { border-color: var(--text); color: var(--text); }
+  .img-label.has-img { border-color: var(--text); color: var(--text); border-style: solid; }
+  .img-clear { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); }
+  .s-btn {
+    padding: 10px 28px; border-radius: 8px; border: none; background: var(--text); color: #fff;
+    font-size: 14px; font-weight: 500; cursor: pointer; transition: .2s; font-family: inherit;
+  }
+  .s-btn:hover { opacity: 0.85; }
+  .s-btn:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; }
+  .img-preview { margin-top: 12px; border-radius: 8px; overflow: hidden; max-height: 160px; }
+  .img-preview img { width: 100%; max-height: 160px; object-fit: cover; display: block; }
+  .anon-hint { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: var(--anon-bg); font-size: 12px; color: var(--text2); border: 1px solid #EFEFEF; }
+
+  .stats { display: flex; justify-content: center; gap: 28px; margin-bottom: 24px; font-size: 13px; color: var(--text2); font-weight: 300; }
+  .stats b { font-weight: 500; color: var(--text); }
+
+  /* Messages */
+  .msg-list { display: flex; flex-direction: column; gap: 16px; }
+  .msg-card {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    overflow: hidden; transition: .25s; animation: fadeIn .4s ease both;
+  }
+  .msg-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.05); }
+  .msg-card.anon { background: var(--anon-bg); border-color: #EFEFEF; }
+  .badge { display: inline-block; background: var(--text2); color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; margin-left: 6px; }
+  .msg-img img { width: 100%; max-height: 400px; object-fit: cover; display: block; }
+  .msg-body { padding: 16px 18px; }
+  .msg-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .msg-name { font-size: 14px; font-weight: 500; }
+  .msg-time { font-size: 11px; color: var(--text2); font-weight: 300; }
+  .msg-text { font-size: 14px; line-height: 1.8; white-space: pre-wrap; word-break: break-word; font-weight: 300; }
+
+  /* Actions bar */
+  .msg-actions { display: flex; align-items: center; gap: 16px; padding: 10px 18px; border-top: 1px solid #F0F0F0; }
+  .msg-card.anon .msg-actions { border-color: #EAEAEA; }
+  .act-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text2); display: flex; align-items: center; gap: 5px; transition: .2s; font-family: inherit; padding: 4px 0; }
+  .act-btn:hover { color: var(--text); }
+  .act-btn.liked { color: var(--like); }
+  .act-btn svg { width: 18px; height: 18px; }
+  .act-btn .count { font-size: 13px; font-weight: 500; }
+  .del-btn { margin-left: auto; font-size: 12px; color: var(--border); cursor: pointer; background: none; border: none; font-family: inherit; transition: .2s; }
+  .del-btn:hover { color: var(--like); }
+
+  /* Replies */
+  .replies { padding: 0 18px 14px; }
+  .reply-item { display: flex; gap: 8px; padding: 6px 0; font-size: 13px; line-height: 1.6; }
+  .reply-item .r-name { font-weight: 500; white-space: nowrap; }
+  .reply-item .r-text { font-weight: 300; word-break: break-word; }
+  .reply-item .r-time { font-size: 11px; color: var(--text2); white-space: nowrap; margin-left: 6px; font-weight: 300; }
+  .reply-item .r-del { font-size: 11px; color: var(--border); cursor: pointer; background: none; border: none; margin-left: 4px; font-family: inherit; }
+  .reply-item .r-del:hover { color: var(--like); }
+
+  /* Reply input */
+  .reply-box { display: flex; gap: 8px; padding: 10px 18px; border-top: 1px solid #F0F0F0; align-items: center; }
+  .reply-box input { flex: 1; border: none; background: transparent; font-size: 13px; font-family: inherit; color: var(--text); padding: 4px 0; }
+  .reply-box input:focus { outline: none; }
+  .reply-box input::placeholder { color: var(--text2); }
+  .reply-box button { background: none; border: none; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .reply-box button:hover { opacity: 0.7; }
+  .reply-box button:disabled { color: var(--border); cursor: not-allowed; }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--text2); font-weight: 300; }
+
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 1000; animation: fadeIn .3s ease; color: #fff; background: var(--text); font-family: inherit; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .modal { background: #fff; border-radius: 16px; padding: 32px; width: min(360px, 88vw); animation: fadeIn .25s ease; }
+  .modal h3 { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 18px; font-weight: 300; }
+  .modal input { width: 100%; padding: 11px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; background: var(--bg); }
+  .modal input:focus { outline: none; border-color: var(--text); }
+  .modal input.err { border-color: var(--like); }
+  .modal .err-text { color: var(--like); font-size: 12px; margin-top: 5px; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-btns button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: .2s; font-family: inherit; font-weight: 500; }
+  .modal-btns .cancel { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+  .modal-btns .confirm { background: var(--text); border: none; color: #fff; }
+
+  @keyframes fadeIn { 0%{opacity:0;transform:translateY(6px)} 100%{opacity:1;transform:translateY(0)} }
+  @media(max-width:500px) {
+    .compose-row { flex-direction: column; }
+    .c-input { min-width: auto; }
+    .header { padding: 40px 16px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>戗の留言板</h1>
+  <p>留下你想说的话</p>
+  <button class="admin-btn" id="adminBtn" onclick="toggleAdmin()">管理</button>
+</div>
+
+<div class="container">
+  <div class="compose">
+    <div class="compose-row">
+      <input class="c-input" type="text" id="inputName" placeholder="你的名字">
+      <select id="selectMode" onchange="onModeChange()">
+        <option value="public">公开</option>
+        <option value="anonymous">匿名</option>
+      </select>
+    </div>
+    <textarea id="inputText" placeholder="写点什么..."></textarea>
+    <div class="compose-actions">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label class="img-label" id="imgLabel">
+          + <span id="imgLabelText">图片</span>
+          <input type="file" accept="image/*" id="inputFile" onchange="onFileChange()" style="display:none">
+        </label>
+        <button class="img-clear" id="imgClear" onclick="clearImage()" style="display:none">✕</button>
+      </div>
+      <button class="s-btn" id="submitBtn" onclick="submitMessage()">发送</button>
+    </div>
+    <div class="img-preview" id="imgPreview" style="display:none"><img id="previewImg"></div>
+    <div class="anon-hint" id="anonHint" style="display:none">匿名留言仅我可见，不会公开显示你的名字</div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div id="msgArea"></div>
+</div>
+
+<div class="toast" id="toast" style="display:none"></div>
+
+<div class="modal-bg" id="modalBg" style="display:none" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>管理员验证</h3>
+    <p>输入密码查看匿名留言并管理内容</p>
+    <input type="password" id="pwInput" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="err-text" id="pwErr" style="display:none">密码不正确</div>
+    <div class="modal-btns">
+      <button class="cancel" onclick="closeModal()">取消</button>
+      <button class="confirm" onclick="doLogin()">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const HEART_EMPTY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+const HEART_FILLED = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+const REPLY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+let isAdmin = false, adminPw = "", allMessages = [];
+let likedSet = new Set(JSON.parse(localStorage.getItem("liked") || "[]"));
+
+loadMessages();
+
+function saveLiked() { localStorage.setItem("liked", JSON.stringify([...likedSet])); }
+
+function loadMessages() {
+  const url = isAdmin ? "/api/messages?admin=" + encodeURIComponent(adminPw) : "/api/messages";
+  fetch(url).then(r => r.json()).then(data => {
+    allMessages = data.messages || [];
+    renderMessages();
+    loadStats();
+  }).catch(() => {});
+}
+
+function loadStats() {
+  fetch("/api/stats").then(r => r.json()).then(s => {
+    let h = `公开 <b>${s.public}</b>`;
+    if (isAdmin) h += `&emsp;匿名 <b>${s.anonymous}</b>`;
+    h += `&emsp;总计 <b>${s.total}</b>`;
+    document.getElementById("stats").innerHTML = h;
+  }).catch(() => {});
+}
+
+function renderMessages() {
+  const area = document.getElementById("msgArea");
+  if (!allMessages.length) {
+    area.innerHTML = '<div class="empty"><p>还没有留言，来写第一条吧</p></div>';
+    return;
+  }
+  let h = '<div class="msg-list">';
+  allMessages.forEach((m, i) => {
+    const a = m.mode === "anonymous";
+    const liked = likedSet.has(m.id);
+    const likes = m.likes || 0;
+    const replies = m.replies || [];
+
+    h += `<div class="msg-card ${a?'anon':''}" style="animation-delay:${i*.03}s">`;
+    if (m.image) h += `<div class="msg-img"><img src="${esc(m.image)}" loading="lazy"></div>`;
+    h += '<div class="msg-body">';
+    h += `<div class="msg-top"><span class="msg-name">${a?(isAdmin?esc(m.name)+'<span class="badge">匿名</span>':'匿名'):esc(m.name)}</span><span class="msg-time">${esc(m.time)}</span></div>`;
+    h += `<div class="msg-text">${esc(m.text)}</div>`;
+    h += '</div>';
+
+    // Actions
+    h += '<div class="msg-actions">';
+    h += `<button class="act-btn ${liked?'liked':''}" onclick="doLike('${m.id}',this)">${liked?HEART_FILLED:HEART_EMPTY}<span class="count">${likes||''}</span></button>`;
+    h += `<button class="act-btn" onclick="focusReply('${m.id}')">${REPLY_ICON}<span class="count">${replies.length||''}</span></button>`;
+    if (isAdmin) h += `<button class="del-btn" onclick="deleteMsg('${m.id}')">删除</button>`;
+    h += '</div>';
+
+    // Replies
+    if (replies.length) {
+      h += '<div class="replies">';
+      replies.forEach(r => {
+        h += `<div class="reply-item"><span class="r-name">${esc(r.name)}</span><span class="r-text">${esc(r.text)}</span><span class="r-time">${esc(r.time)}</span>`;
+        if (isAdmin) h += `<button class="r-del" onclick="deleteReply('${r.id}')">删除</button>`;
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+
+    // Reply input
+    h += `<div class="reply-box"><input id="reply-${m.id}" placeholder="回复..." onkeydown="if(event.key==='Enter')sendReply('${m.id}')"><button onclick="sendReply('${m.id}')">发送</button></div>`;
+    h += '</div>';
+  });
+  h += '</div>';
+  area.innerHTML = h;
+}
+
+function esc(s) { return s ? s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") : ""; }
+
+// ===== Like =====
+function doLike(id, btn) {
+  if (likedSet.has(id)) return; // 已经赞过
+  likedSet.add(id); saveLiked();
+  fetch(`/api/messages/${id}/like`, { method: "POST", headers: {"Content-Type":"application/json"} })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) loadMessages();
+    }).catch(() => {});
+}
+
+// ===== Reply =====
+function focusReply(id) {
+  const el = document.getElementById("reply-" + id);
+  if (el) el.focus();
+}
+
+function sendReply(msgId) {
+  const input = document.getElementById("reply-" + msgId);
+  const text = input.value.trim();
+  if (!text) return;
+
+  const name = document.getElementById("inputName").value.trim() || "匿名";
+
+  fetch(`/api/messages/${msgId}/reply`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ name, text })
+  }).then(r => r.json()).then(d => {
+    if (d.success) { input.value = ""; loadMessages(); }
+    else showToast(d.error || "回复失败");
+  }).catch(() => showToast("网络错误"));
+}
+
+// ===== Compose =====
+function onModeChange() {
+  const m = document.getElementById("selectMode").value;
+  document.getElementById("anonHint").style.display = m === "anonymous" ? "" : "none";
+  document.getElementById("inputName").placeholder = m === "anonymous" ? "名字（可不填）" : "你的名字";
+  document.getElementById("selectMode").classList.toggle("anon", m === "anonymous");
+}
+
+function onFileChange() {
+  const f = document.getElementById("inputFile").files[0];
+  if (!f) return;
+  if (f.size > 800*1024) { showToast("图片不能超过800KB"); document.getElementById("inputFile").value=""; return; }
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById("previewImg").src = e.target.result;
+    document.getElementById("imgPreview").style.display = "";
+    document.getElementById("imgLabelText").textContent = "已选";
+    document.getElementById("imgLabel").classList.add("has-img");
+    document.getElementById("imgClear").style.display = "";
+  };
+  r.readAsDataURL(f);
+}
+
+function clearImage() {
+  document.getElementById("inputFile").value = "";
+  document.getElementById("imgPreview").style.display = "none";
+  document.getElementById("imgLabelText").textContent = "图片";
+  document.getElementById("imgLabel").classList.remove("has-img");
+  document.getElementById("imgClear").style.display = "none";
+}
+
+function submitMessage() {
+  const name = document.getElementById("inputName").value.trim();
+  const text = document.getElementById("inputText").value.trim();
+  const mode = document.getElementById("selectMode").value;
+  const fi = document.getElementById("inputFile");
+  if (!text) { showToast("请写点什么"); return; }
+  if (mode === "public" && !name) { showToast("公开留言请填写名字"); return; }
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true; btn.textContent = "发送中...";
+
+  const fd = new FormData();
+  fd.append("name", name); fd.append("text", text); fd.append("mode", mode);
+  if (fi.files[0]) fd.append("image", fi.files[0]);
+
+  fetch("/api/messages", { method: "POST", body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        document.getElementById("inputName").value = "";
+        document.getElementById("inputText").value = "";
+        clearImage();
+        document.getElementById("selectMode").value = "public"; onModeChange();
+        showToast("已发送"); loadMessages();
+      } else showToast(d.error || "发送失败");
+    })
+    .catch(() => showToast("网络错误"))
+    .finally(() => { btn.disabled = false; btn.textContent = "发送"; });
+}
+
+// ===== Admin =====
+function toggleAdmin() {
+  if (isAdmin) {
+    isAdmin = false; adminPw = "";
+    document.getElementById("adminBtn").textContent = "管理";
+    document.getElementById("adminBtn").classList.remove("active");
+    loadMessages();
+  } else {
+    document.getElementById("modalBg").style.display = "flex";
+    setTimeout(() => document.getElementById("pwInput").focus(), 100);
+  }
+}
+function closeModal() {
+  document.getElementById("modalBg").style.display = "none";
+  document.getElementById("pwInput").value = "";
+  document.getElementById("pwErr").style.display = "none";
+}
+function doLogin() {
+  const pw = document.getElementById("pwInput").value;
+  fetch("/api/auth", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({password:pw}) })
+    .then(r => { if(!r.ok) throw 0; return r.json(); })
+    .then(() => {
+      isAdmin = true; adminPw = pw; closeModal();
+      document.getElementById("adminBtn").textContent = "退出管理";
+      document.getElementById("adminBtn").classList.add("active");
+      loadMessages();
+    })
+    .catch(() => { document.getElementById("pwErr").style.display = ""; document.getElementById("pwInput").classList.add("err"); });
+}
+function deleteMsg(id) {
+  if (!confirm("确定删除这条留言及其所有回复？")) return;
+  fetch("/api/messages/" + id, { method:"DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({password:adminPw}) })
+    .then(r => r.json()).then(() => { showToast("已删除"); loadMessages(); }).catch(() => showToast("删除失败"));
+}
+function deleteReply(id) {
+  if (!confirm("确定删除这条回复？")) return;
+  fetch("/api/replies/" + id, { method:"DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({password:adminPw}) })
+    .then(r => r.json()).then(() => { showToast("已删除"); loadMessages(); }).catch(() => showToast("删除失败"));
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "";
+  setTimeout(() => t.style.display = "none", 2200);
+}
+</script>
+</body>
+</html>
