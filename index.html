@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>戗の留言板</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
+
+  :root {
+    --bg: #FAFAFA; --card: #FFFFFF; --text: #262626; --text2: #8E8E8E;
+    --border: #DBDBDB; --accent: #262626; --accent2: #737373;
+    --hover: #F5F5F5; --anon: #8E8E8E; --anon-bg: #F9F9F9;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Noto Sans SC", -apple-system, "Helvetica Neue", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  /* Header */
+  .header { text-align: center; padding: 60px 20px 40px; position: relative; border-bottom: 1px solid var(--border); background: #fff; }
+  .header h1 { font-family: "Playfair Display", serif; font-size: clamp(32px, 6vw, 48px); font-weight: 600; color: var(--text); letter-spacing: 2px; margin-bottom: 8px; }
+  .header p { color: var(--text2); font-size: 14px; font-weight: 300; letter-spacing: 1px; }
+  .admin-btn { position: absolute; top: 20px; right: 20px; background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; color: var(--text2); transition: .2s; font-family: inherit; }
+  .admin-btn:hover { border-color: var(--text); color: var(--text); }
+  .admin-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+
+  /* Container */
+  .container { max-width: 640px; margin: 0 auto; padding: 28px 16px 80px; }
+
+  /* Compose */
+  .compose { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); margin-bottom: 32px; }
+  .compose-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .compose input[type=text], .compose textarea, .compose select {
+    padding: 11px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;
+    font-family: inherit; transition: .2s; background: var(--bg); color: var(--text);
+  }
+  .compose input[type=text]:focus, .compose textarea:focus { outline: none; border-color: var(--text); }
+  .compose input[type=text] { flex: 1; min-width: 140px; }
+  .compose select { font-weight: 500; cursor: pointer; color: var(--text); }
+  .compose select.anon { background: var(--anon-bg); color: var(--anon); }
+  .compose textarea { width: 100%; resize: vertical; line-height: 1.8; min-height: 80px; }
+  .compose-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 10px; }
+  .img-label { padding: 8px 16px; border-radius: 8px; border: 1px dashed var(--border); cursor: pointer; font-size: 13px; color: var(--text2); display: flex; align-items: center; gap: 6px; transition: .2s; }
+  .img-label:hover { border-color: var(--text); color: var(--text); }
+  .img-label.has-img { border-color: var(--text); color: var(--text); border-style: solid; }
+  .img-clear { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text2); }
+  .submit-btn {
+    padding: 10px 28px; border-radius: 8px; border: none;
+    background: var(--text); color: #fff;
+    font-size: 14px; font-weight: 500; cursor: pointer; transition: .2s;
+    font-family: inherit; letter-spacing: 0.5px;
+  }
+  .submit-btn:hover { opacity: 0.85; }
+  .submit-btn:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; }
+  .img-preview { margin-top: 12px; border-radius: 8px; overflow: hidden; max-height: 160px; }
+  .img-preview img { width: 100%; max-height: 160px; object-fit: cover; display: block; }
+  .anon-hint { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: var(--anon-bg); font-size: 12px; color: var(--text2); border: 1px solid #EFEFEF; }
+
+  /* Stats */
+  .stats { display: flex; justify-content: center; gap: 28px; margin-bottom: 24px; font-size: 13px; color: var(--text2); font-weight: 300; }
+  .stats b { font-weight: 500; color: var(--text); }
+
+  /* Messages - masonry */
+  .msg-grid { columns: 2 280px; column-gap: 16px; }
+  .msg-card {
+    background: var(--card); border-radius: 12px; padding: 0; margin-bottom: 16px;
+    border: 1px solid var(--border); break-inside: avoid; overflow: hidden;
+    transition: .25s; animation: fadeIn .4s ease both;
+  }
+  .msg-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.06); }
+  .msg-card.anon { background: var(--anon-bg); border-color: #EFEFEF; }
+  .msg-card .badge { display: inline-block; background: var(--text2); color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; margin-left: 6px; letter-spacing: 0.5px; }
+  .msg-card .msg-img img { width: 100%; max-height: 280px; object-fit: cover; display: block; }
+  .msg-card .msg-body { padding: 16px; }
+  .msg-card .msg-text { font-size: 14px; line-height: 1.8; white-space: pre-wrap; word-break: break-word; margin-bottom: 12px; font-weight: 300; }
+  .msg-card .msg-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #F0F0F0; }
+  .msg-card.anon .msg-footer { border-color: #EAEAEA; }
+  .msg-card .msg-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .msg-card.anon .msg-name { color: var(--text2); }
+  .msg-card .msg-time { font-size: 11px; color: var(--text2); font-weight: 300; }
+  .msg-card .msg-del { background: none; border: none; font-size: 12px; cursor: pointer; color: var(--border); padding: 2px 6px; border-radius: 4px; transition: .2s; margin-left: 8px; }
+  .msg-card .msg-del:hover { color: #ED4956; }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--text2); font-weight: 300; }
+  .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+
+  /* Toast */
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 1000; animation: fadeIn .3s ease; color: #fff; background: var(--text); font-family: inherit; }
+
+  /* Modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .modal { background: #fff; border-radius: 16px; padding: 32px; width: min(360px, 88vw); animation: fadeIn .25s ease; }
+  .modal h3 { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 18px; font-weight: 300; }
+  .modal input { width: 100%; padding: 11px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; background: var(--bg); }
+  .modal input:focus { outline: none; border-color: var(--text); }
+  .modal input.err { border-color: #ED4956; }
+  .modal .err-text { color: #ED4956; font-size: 12px; margin-top: 5px; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-btns button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: .2s; font-family: inherit; font-weight: 500; }
+  .modal-btns .cancel { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+  .modal-btns .cancel:hover { background: var(--hover); }
+  .modal-btns .confirm { background: var(--text); border: none; color: #fff; }
+  .modal-btns .confirm:hover { opacity: 0.85; }
+
+  @keyframes fadeIn { 0%{opacity:0;transform:translateY(6px)} 100%{opacity:1;transform:translateY(0)} }
+  .toast { animation: fadeIn .3s ease; }
+
+  @media(max-width:500px) {
+    .msg-grid { columns: 1; }
+    .compose-row { flex-direction: column; }
+    .compose input[type=text] { min-width: auto; }
+    .header { padding: 40px 16px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>戗の留言板</h1>
+  <p>留下你想说的话</p>
+  <button class="admin-btn" id="adminBtn" onclick="toggleAdmin()">管理</button>
+</div>
+
+<div class="container">
+  <!-- Compose -->
+  <div class="compose">
+    <div class="compose-row">
+      <input type="text" id="inputName" placeholder="你的名字">
+      <select id="selectMode" onchange="onModeChange()">
+        <option value="public">公开</option>
+        <option value="anonymous">匿名</option>
+      </select>
+    </div>
+    <textarea id="inputText" placeholder="写点什么..."></textarea>
+    <div class="compose-actions">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label class="img-label" id="imgLabel">
+          + <span id="imgLabelText">图片</span>
+          <input type="file" accept="image/*" id="inputFile" onchange="onFileChange()" style="display:none">
+        </label>
+        <button class="img-clear" id="imgClear" onclick="clearImage()" style="display:none">✕</button>
+      </div>
+      <button class="submit-btn" id="submitBtn" onclick="submitMessage()">发送</button>
+    </div>
+    <div class="img-preview" id="imgPreview" style="display:none"><img id="previewImg"></div>
+    <div class="anon-hint" id="anonHint" style="display:none">匿名留言仅我可见，不会公开显示你的名字</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats"></div>
+
+  <!-- Messages -->
+  <div id="msgArea"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" style="display:none"></div>
+
+<!-- Admin Modal -->
+<div class="modal-bg" id="modalBg" style="display:none" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>管理员验证</h3>
+    <p>输入密码查看匿名留言并管理内容</p>
+    <input type="password" id="pwInput" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="err-text" id="pwErr" style="display:none">密码不正确</div>
+    <div class="modal-btns">
+      <button class="cancel" onclick="closeModal()">取消</button>
+      <button class="confirm" onclick="doLogin()">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let isAdmin = false, adminPw = "", allMessages = [];
+
+loadMessages();
+
+function loadMessages() {
+  const url = isAdmin ? "/api/messages?admin=" + encodeURIComponent(adminPw) : "/api/messages";
+  fetch(url).then(r => r.json()).then(data => {
+    allMessages = data.messages || [];
+    renderMessages();
+    loadStats();
+  }).catch(() => {});
+}
+
+function loadStats() {
+  fetch("/api/stats").then(r => r.json()).then(s => {
+    let h = `公开 <b>${s.public}</b>`;
+    if (isAdmin) h += `&emsp;匿名 <b>${s.anonymous}</b>`;
+    h += `&emsp;总计 <b>${s.total}</b>`;
+    document.getElementById("stats").innerHTML = h;
+  }).catch(() => {});
+}
+
+function renderMessages() {
+  const area = document.getElementById("msgArea");
+  if (!allMessages.length) {
+    area.innerHTML = '<div class="empty"><div class="empty-icon">✉</div><p>还没有留言，来写第一条吧</p></div>';
+    return;
+  }
+  let h = '<div class="msg-grid">';
+  allMessages.forEach((m, i) => {
+    const a = m.mode === "anonymous";
+    h += `<div class="msg-card ${a?'anon':''}" style="animation-delay:${i*.03}s">`;
+    if (m.image) h += `<div class="msg-img"><img src="${esc(m.image)}" loading="lazy"></div>`;
+    h += '<div class="msg-body">';
+    h += `<div class="msg-text">${esc(m.text)}</div>`;
+    h += '<div class="msg-footer">';
+    h += `<span class="msg-name">${a?(isAdmin?esc(m.name)+'<span class="badge">匿名</span>':'匿名'):esc(m.name)}</span>`;
+    h += `<span style="display:flex;align-items:center;"><span class="msg-time">${esc(m.time)}</span>`;
+    if (isAdmin) h += `<button class="msg-del" onclick="deleteMsg('${m.id}')">删除</button>`;
+    h += '</span></div></div></div>';
+  });
+  h += '</div>';
+  area.innerHTML = h;
+}
+
+function esc(s) { return s ? s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") : ""; }
+
+function onModeChange() {
+  const m = document.getElementById("selectMode").value;
+  const s = document.getElementById("selectMode");
+  document.getElementById("anonHint").style.display = m === "anonymous" ? "" : "none";
+  document.getElementById("inputName").placeholder = m === "anonymous" ? "名字（可不填）" : "你的名字";
+  s.classList.toggle("anon", m === "anonymous");
+}
+
+function onFileChange() {
+  const f = document.getElementById("inputFile").files[0];
+  if (!f) return;
+  if (f.size > 800*1024) { showToast("图片不能超过800KB"); document.getElementById("inputFile").value=""; return; }
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById("previewImg").src = e.target.result;
+    document.getElementById("imgPreview").style.display = "";
+    document.getElementById("imgLabelText").textContent = "已选";
+    document.getElementById("imgLabel").classList.add("has-img");
+    document.getElementById("imgClear").style.display = "";
+  };
+  r.readAsDataURL(f);
+}
+
+function clearImage() {
+  document.getElementById("inputFile").value = "";
+  document.getElementById("imgPreview").style.display = "none";
+  document.getElementById("imgLabelText").textContent = "图片";
+  document.getElementById("imgLabel").classList.remove("has-img");
+  document.getElementById("imgClear").style.display = "none";
+}
+
+function submitMessage() {
+  const name = document.getElementById("inputName").value.trim();
+  const text = document.getElementById("inputText").value.trim();
+  const mode = document.getElementById("selectMode").value;
+  const fi = document.getElementById("inputFile");
+  if (!text) { showToast("请写点什么"); return; }
+  if (mode === "public" && !name) { showToast("公开留言请填写名字"); return; }
+
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true; btn.textContent = "发送中...";
+
+  const fd = new FormData();
+  fd.append("name", name); fd.append("text", text); fd.append("mode", mode);
+  if (fi.files[0]) fd.append("image", fi.files[0]);
+
+  fetch("/api/messages", { method: "POST", body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        document.getElementById("inputName").value = "";
+        document.getElementById("inputText").value = "";
+        clearImage();
+        document.getElementById("selectMode").value = "public"; onModeChange();
+        showToast("已发送");
+        loadMessages();
+      } else showToast(d.error || "发送失败");
+    })
+    .catch(() => showToast("网络错误"))
+    .finally(() => { btn.disabled = false; btn.textContent = "发送"; });
+}
+
+function toggleAdmin() {
+  if (isAdmin) {
+    isAdmin = false; adminPw = "";
+    document.getElementById("adminBtn").textContent = "管理";
+    document.getElementById("adminBtn").classList.remove("active");
+    loadMessages();
+  } else {
+    document.getElementById("modalBg").style.display = "flex";
+    setTimeout(() => document.getElementById("pwInput").focus(), 100);
+  }
+}
+
+function closeModal() {
+  document.getElementById("modalBg").style.display = "none";
+  document.getElementById("pwInput").value = "";
+  document.getElementById("pwErr").style.display = "none";
+}
+
+function doLogin() {
+  const pw = document.getElementById("pwInput").value;
+  fetch("/api/auth", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({password:pw}) })
+    .then(r => { if(!r.ok) throw 0; return r.json(); })
+    .then(() => {
+      isAdmin = true; adminPw = pw; closeModal();
+      document.getElementById("adminBtn").textContent = "退出管理";
+      document.getElementById("adminBtn").classList.add("active");
+      loadMessages();
+    })
+    .catch(() => { document.getElementById("pwErr").style.display = ""; document.getElementById("pwInput").classList.add("err"); });
+}
+
+function deleteMsg(id) {
+  if (!confirm("确定删除这条留言？")) return;
+  fetch("/api/messages/" + id, { method:"DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({password:adminPw}) })
+    .then(r => r.json()).then(() => { showToast("已删除"); loadMessages(); })
+    .catch(() => showToast("删除失败"));
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "";
+  setTimeout(() => t.style.display = "none", 2200);
+}
+</script>
+</body>
+</html>
