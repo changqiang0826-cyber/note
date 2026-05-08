@@ -1,0 +1,11 @@
+{
+  "name": "戗の留言板",
+  "short_name": "留言板",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#262626",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

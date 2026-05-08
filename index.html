@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#262626">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg">
+<title>戗の留言板</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Playfair+Display:wght@600&display=swap');
+
+  :root{--bg:#FAFAFA;--card:#FFF;--text:#262626;--text2:#8E8E8E;--border:#DBDBDB;--hover:#F5F5F5;--anon-bg:#F9F9F9;--like:#ED4956;--blue:#0095F6;--pin:#FFB800;--shadow:rgba(0,0,0,.05)}
+  [data-theme="dark"]{--bg:#000;--card:#1a1a1a;--text:#F5F5F5;--text2:#8E8E8E;--border:#363636;--hover:#262626;--anon-bg:#111;--shadow:rgba(255,255,255,.03)}
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Noto Sans SC",-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+  a{color:var(--blue);text-decoration:none}
+
+  .header{text-align:center;padding:60px 20px 40px;position:relative;border-bottom:1px solid var(--border);background:var(--card);transition:background .3s}
+  .header h1{font-family:"Playfair Display",serif;font-size:clamp(32px,6vw,48px);font-weight:600;letter-spacing:2px;margin-bottom:8px}
+  .header p{color:var(--text2);font-size:14px;font-weight:300;letter-spacing:1px}
+  .hdr-left{position:absolute;top:20px;left:20px}
+  .hdr-right{position:absolute;top:20px;right:20px;display:flex;gap:8px;align-items:center}
+  .hdr-user{font-size:13px;color:var(--text);font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .hdr-user:hover{opacity:.7}
+  .hdr-btn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 13px;font-size:12px;cursor:pointer;color:var(--text2);font-family:inherit;transition:.2s}
+  .hdr-btn:hover{border-color:var(--text);color:var(--text)}
+  .hdr-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+  /* Theme toggle */
+  .theme-btn{background:none;border:1px solid var(--border);border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s}
+  .theme-btn:hover{border-color:var(--text)}
+
+  .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0;overflow:hidden}
+  .av img{width:100%;height:100%;object-fit:cover}
+  .av-sm{width:22px;height:22px;font-size:10px}
+  .av-lg{width:64px;height:64px;font-size:24px}
+
+  .container{max-width:640px;margin:0 auto;padding:28px 16px 80px}
+
+  .auth-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:380px;margin:40px auto;transition:background .3s}
+  .auth-card h2{font-size:20px;font-weight:500;text-align:center;margin-bottom:4px}
+  .auth-card .sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:24px}
+  .auth-card input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--bg);color:var(--text);margin-bottom:12px;transition:.2s}
+  .auth-card input:focus{outline:none;border-color:var(--text)}
+  .auth-card .btn{width:100%;padding:11px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+  .auth-card .links{text-align:center;margin-top:16px;font-size:13px;color:var(--text2)}
+  .auth-card .links a{margin:0 6px}
+  .auth-card .err{color:var(--like);font-size:13px;text-align:center;margin-bottom:12px}
+  .auth-card .ok{color:#10B981;font-size:13px;text-align:center;margin-bottom:12px}
+
+  .compose{background:var(--card);border-radius:12px;padding:24px;border:1px solid var(--border);margin-bottom:32px;transition:background .3s}
+  .compose-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+  .c-sel{padding:11px 14px;border-radius:8px;border:1px solid var(--border);font-size:14px;font-family:inherit;background:var(--bg);color:var(--text);font-weight:500;cursor:pointer}
+  .c-sel.anon{background:var(--anon-bg);color:var(--text2)}
+  .compose textarea{width:100%;padding:11px 14px;border-radius:8px;border:1px solid var(--border);font-size:14px;font-family:inherit;background:var(--bg);color:var(--text);resize:vertical;line-height:1.8;min-height:80px}
+  .compose textarea:focus{outline:none;border-color:var(--text)}
+  .compose-actions{display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:10px}
+  .img-label{padding:8px 16px;border-radius:8px;border:1px dashed var(--border);cursor:pointer;font-size:13px;color:var(--text2);transition:.2s}
+  .img-label.has{border-color:var(--text);color:var(--text);border-style:solid}
+  .s-btn{padding:10px 28px;border-radius:8px;border:none;background:var(--text);color:var(--bg);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
+  .s-btn:disabled{background:var(--border);color:var(--text2);cursor:not-allowed}
+  .img-preview{margin-top:12px;border-radius:8px;overflow:hidden;max-height:160px}
+  .img-preview img{width:100%;max-height:160px;object-fit:cover;display:block}
+  .anon-hint{margin-top:12px;padding:10px 14px;border-radius:8px;background:var(--anon-bg);font-size:12px;color:var(--text2)}
+
+  .stats{display:flex;justify-content:center;gap:28px;margin-bottom:16px;font-size:13px;color:var(--text2)}
+  .stats b{font-weight:500;color:var(--text)}
+  .sort-bar{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+  .sort-label{font-size:13px;color:var(--text2);margin-right:4px}
+  .sort-btn{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;transition:.2s}
+  .sort-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+  .loading{text-align:center;padding:40px}
+  .spinner{width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .msg-list{display:flex;flex-direction:column;gap:16px}
+  .msg-card{background:var(--card);border-radius:12px;border:1px solid var(--border);overflow:hidden;transition:.3s;animation:fadeIn .4s ease both}
+  .msg-card:hover{box-shadow:0 4px 20px var(--shadow)}
+  .msg-card.anon{background:var(--anon-bg)}
+  .msg-card.pinned{border-color:var(--pin);box-shadow:0 0 0 1px var(--pin)}
+  .pin-tag{display:inline-flex;align-items:center;gap:3px;background:#FFF8E1;color:#F59E0B;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;margin-left:6px}
+  [data-theme="dark"] .pin-tag{background:#3a2e00}
+  .badge{display:inline-block;background:var(--text2);color:#fff;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:500;margin-left:6px}
+  .msg-img{cursor:pointer}
+  .msg-img img{width:100%;max-height:400px;object-fit:cover;display:block;transition:opacity .2s}
+  .msg-img:hover img{opacity:.92}
+  .msg-body{padding:16px 18px}
+  .msg-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .msg-author{display:flex;align-items:center;gap:8px}
+  .msg-name{font-size:14px;font-weight:500}
+  .msg-time{font-size:11px;color:var(--text2)}
+  .msg-text{font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-word;font-weight:300}
+
+  /* Reactions */
+  .msg-reactions{padding:6px 18px;display:flex;gap:6px;flex-wrap:wrap}
+  .rx-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-size:13px;cursor:pointer;background:var(--bg);transition:.2s;user-select:none}
+  .rx-pill:hover{border-color:var(--text)}
+  .rx-pill.mine{border-color:var(--blue);background:rgba(0,149,246,.08)}
+  .rx-pill .rx-count{font-size:12px;font-weight:500;color:var(--text2)}
+
+  .msg-actions{display:flex;align-items:center;gap:6px;padding:8px 18px;border-top:1px solid var(--border);position:relative}
+  .react-trigger{background:none;border:none;cursor:pointer;font-size:18px;padding:4px 6px;border-radius:6px;transition:.2s;color:var(--text2)}
+  .react-trigger:hover{background:var(--hover)}
+  .react-bar{display:none;position:absolute;bottom:42px;left:10px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:4px 6px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:10;gap:2px}
+  .react-bar.show{display:flex}
+  .react-bar button{background:none;border:none;font-size:22px;cursor:pointer;padding:4px 6px;border-radius:8px;transition:.15s}
+  .react-bar button:hover{background:var(--hover);transform:scale(1.2)}
+
+  .act-btn{background:none;border:none;cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:5px;transition:.2s;font-family:inherit;padding:4px 6px;border-radius:6px}
+  .act-btn:hover{background:var(--hover);color:var(--text)}
+  .act-btn svg{width:18px;height:18px}
+  .act-right{margin-left:auto;display:flex;gap:4px}
+  .del-btn,.pin-btn{font-size:12px;color:var(--text2);cursor:pointer;background:none;border:none;font-family:inherit;padding:4px 8px;border-radius:6px;transition:.2s}
+  .del-btn:hover{color:var(--like);background:var(--hover)}
+  .pin-btn:hover{color:var(--pin);background:var(--hover)}
+
+  .replies{padding:0 18px 10px}
+  .reply-item{display:flex;gap:8px;padding:5px 0;font-size:13px;line-height:1.6;align-items:baseline;flex-wrap:wrap}
+  .r-author{display:flex;align-items:center;gap:5px;flex-shrink:0}
+  .r-name{font-weight:500}
+  .r-text{font-weight:300;word-break:break-word}
+  .r-time{font-size:11px;color:var(--text2);margin-left:6px}
+  .r-del{font-size:11px;color:var(--border);cursor:pointer;background:none;border:none;font-family:inherit}
+  .r-del:hover{color:var(--like)}
+  .reply-box{display:flex;gap:8px;padding:10px 18px;border-top:1px solid var(--border);align-items:center}
+  .reply-box input{flex:1;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--text);padding:4px 0}
+  .reply-box input:focus{outline:none}
+  .reply-box button{background:none;border:none;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--text2)}
+  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;font-size:14px;font-weight:500;z-index:1001;animation:fadeIn .3s ease;color:#fff;background:var(--text);font-family:inherit}
+
+  /* Lightbox */
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn .2s}
+  .lightbox img{max-width:94vw;max-height:94vh;object-fit:contain;border-radius:4px}
+  .lb-close{position:fixed;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer;z-index:1001;background:none;border:none;opacity:.7}
+  .lb-close:hover{opacity:1}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:999}
+  .modal{background:var(--card);border-radius:16px;padding:32px;width:min(400px,90vw);animation:fadeIn .25s ease;max-height:90vh;overflow-y:auto}
+  .modal h3{font-size:18px;font-weight:500;margin-bottom:16px}
+  .modal label{font-size:13px;color:var(--text2);display:block;margin-bottom:4px;margin-top:14px}
+  .modal input{width:100%;padding:11px 14px;border-radius:8px;border:1px solid var(--border);font-size:14px;font-family:inherit;background:var(--bg);color:var(--text)}
+  .modal input:focus{outline:none;border-color:var(--text)}
+  .modal .err-text{color:var(--like);font-size:12px;margin-top:5px}
+  .modal-btns{display:flex;gap:10px;margin-top:20px}
+  .modal-btns button{flex:1;padding:11px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:500}
+  .modal-btns .cancel{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+  .modal-btns .confirm{background:var(--text);border:none;color:var(--bg)}
+  .modal-btns .blue{background:var(--blue);border:none;color:#fff}
+  .profile-av-wrap{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+  .profile-av-actions{display:flex;flex-direction:column;gap:6px}
+  .profile-av-actions button{font-size:12px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-family:inherit;color:var(--text2)}
+  .profile-section{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}
+  .profile-section h4{font-size:14px;font-weight:500;margin-bottom:10px}
+
+  @keyframes fadeIn{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+  @media(max-width:500px){.header{padding:40px 16px 28px}.hdr-right{top:12px;right:12px;flex-direction:column;align-items:flex-end;gap:4px}.hdr-left{top:12px;left:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="hdr-left"><button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button></div>
+  <h1>戗の留言板</h1>
+  <p>留下你想说的话</p>
+  <div class="hdr-right" id="hdrRight"></div>
+</div>
+<div class="container" id="main"></div>
+<div class="toast" id="toast" style="display:none"></div>
+<div id="modals"></div>
+<div id="lightbox"></div>
+
+<script>
+const RI=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const EMOJIS=["👍","❤️","😂","😢","🔥"];
+const COLORS=["#E91E63","#9C27B0","#3F51B5","#03A9F4","#009688","#4CAF50","#FF9800","#795548","#607D8B","#F44336","#673AB7","#2196F3","#00BCD4","#8BC34A","#FF5722"];
+
+let currentUser=null,isAdmin=false,adminPw="",allMessages=[],authMode="login",sortMode="newest",isLoading=false,refreshTimer=null,openReactId=null;
+
+// Theme
+const savedTheme=localStorage.getItem("theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");
+document.documentElement.setAttribute("data-theme",savedTheme);
+updateThemeBtn();
+function toggleTheme(){const t=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",t);localStorage.setItem("theme",t);updateThemeBtn();document.querySelector('meta[name="theme-color"]').content=t==="dark"?"#000":"#262626"}
+function updateThemeBtn(){const b=document.getElementById("themeBtn");if(b)b.textContent=document.documentElement.getAttribute("data-theme")==="dark"?"☀️":"🌙"}
+
+function hashColor(s){let h=0;for(let i=0;i<(s||"").length;i++)h=s.charCodeAt(i)+((h<<5)-h);return COLORS[Math.abs(h)%COLORS.length]}
+function makeAv(n,a,c){if(a)return`<div class="av ${c||''}"><img src="${esc(a)}"></div>`;return`<div class="av ${c||''}" style="background:${hashColor(n)}">${esc((n||"?")[0].toUpperCase())}</div>`}
+function esc(s){return s?s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}
+function apiFetch(u,o={}){if(currentUser?.token){o.headers=o.headers||{};o.headers["x-token"]=currentUser.token}return fetch(u,o).then(r=>r.json().then(d=>r.ok?d:Promise.reject(d)))}
+
+// PWA
+if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
+
+// Init
+const saved=localStorage.getItem("auth");
+if(saved){try{currentUser=JSON.parse(saved);verifyUser()}catch{currentUser=null;render()}}else render();
+function verifyUser(){apiFetch("/api/auth/me").then(d=>{Object.assign(currentUser,d);localStorage.setItem("auth",JSON.stringify(currentUser));render()}).catch(()=>{currentUser=null;localStorage.removeItem("auth");render()})}
+
+function render(){renderHeader();if(!currentUser)renderAuth();else renderBoard();startRefresh()}
+function renderHeader(){
+  const el=document.getElementById("hdrRight");if(!currentUser){el.innerHTML='';return}
+  el.innerHTML=`<span class="hdr-user" onclick="showProfile()">${makeAv(currentUser.displayName,currentUser.avatar)} ${esc(currentUser.displayName)}</span><button class="hdr-btn" onclick="logout()">退出</button><button class="hdr-btn ${isAdmin?'active':''}" onclick="toggleAdmin()">${isAdmin?'退出管理':'管理'}</button>`;
+}
+
+// Auto-refresh
+function startRefresh(){clearInterval(refreshTimer);if(currentUser)refreshTimer=setInterval(()=>{const u=isAdmin?"/api/messages?admin="+encodeURIComponent(adminPw):"/api/messages";fetch(u).then(r=>r.json()).then(d=>{const n=d.messages||[];if(JSON.stringify(n.map(m=>m.id))!==JSON.stringify(allMessages.map(m=>m.id))){allMessages=n;renderMessages();loadStats()}else{allMessages=n}}).catch(()=>{})},10000)}
+
+// Auth
+function renderAuth(){document.getElementById("main").innerHTML=authMode==="login"?
+  `<div class="auth-card"><h2>登录</h2><p class="sub">登录后即可留言</p><div class="err" id="authErr" style="display:none"></div><input id="aEmail" type="email" placeholder="邮箱"><input id="aPw" type="password" placeholder="密码" onkeydown="if(event.key==='Enter')doLogin()"><button class="btn" onclick="doLogin()">登录</button><div class="links"><a href="#" onclick="authMode='register';renderAuth();return false">注册账号</a><a href="#" onclick="authMode='recover';renderAuth();return false">忘记密码</a></div></div>`:
+  authMode==="register"?
+  `<div class="auth-card"><h2>注册</h2><p class="sub">创建账号</p><div class="err" id="authErr" style="display:none"></div><div class="ok" id="authOk" style="display:none"></div><input id="aName" type="text" placeholder="昵称" maxlength="20"><input id="aEmail" type="email" placeholder="邮箱"><input id="aPw" type="password" placeholder="密码（至少6位）" onkeydown="if(event.key==='Enter')doRegister()"><button class="btn" onclick="doRegister()">注册</button><div class="links"><a href="#" onclick="authMode='login';renderAuth();return false">已有账号</a></div></div>`:
+  `<div class="auth-card"><h2>找回密码</h2><p class="sub">输入邮箱发送重置链接</p><div class="err" id="authErr" style="display:none"></div><div class="ok" id="authOk" style="display:none"></div><input id="aEmail" type="email" placeholder="邮箱" onkeydown="if(event.key==='Enter')doRecover()"><button class="btn" onclick="doRecover()">发送</button><div class="links"><a href="#" onclick="authMode='login';renderAuth();return false">返回登录</a></div></div>`}
+function showAuthErr(m){const e=document.getElementById("authErr");if(e){e.textContent=m;e.style.display=""}}
+function showAuthOk(m){const e=document.getElementById("authOk");if(e){e.textContent=m;e.style.display=""}}
+async function doLogin(){const e=document.getElementById("aEmail").value.trim(),p=document.getElementById("aPw").value;if(!e||!p)return showAuthErr("请填写邮箱和密码");try{const d=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:e,password:p})}).then(r=>r.json().then(j=>r.ok?j:Promise.reject(j)));currentUser={token:d.token,...d.user};localStorage.setItem("auth",JSON.stringify(currentUser));render()}catch(e){showAuthErr(e.error||"登录失败")}}
+async function doRegister(){const n=document.getElementById("aName").value.trim(),e=document.getElementById("aEmail").value.trim(),p=document.getElementById("aPw").value;if(!n)return showAuthErr("请填写昵称");if(!e)return showAuthErr("请填写邮箱");if(!p||p.length<6)return showAuthErr("密码至少6位");try{const d=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:e,password:p,displayName:n})}).then(r=>r.json().then(j=>r.ok?j:Promise.reject(j)));if(d.needConfirm)showAuthOk(d.message);else if(d.token){currentUser={token:d.token,...d.user};localStorage.setItem("auth",JSON.stringify(currentUser));render()}}catch(e){showAuthErr(e.error||"注册失败")}}
+async function doRecover(){const e=document.getElementById("aEmail").value.trim();if(!e)return showAuthErr("请输入邮箱");try{const d=await fetch("/api/auth/recover",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:e})}).then(r=>r.json());showAuthOk(d.message||"已发送")}catch{showAuthErr("失败")}}
+function logout(){currentUser=null;isAdmin=false;adminPw="";localStorage.removeItem("auth");clearInterval(refreshTimer);render()}
+
+// Profile
+function showProfile(){
+  let h=`<div class="modal-bg" id="modalProfile" onclick="closeModal('modalProfile')"><div class="modal" onclick="event.stopPropagation()"><h3>个人设置</h3><div class="profile-av-wrap">${makeAv(currentUser.displayName,currentUser.avatar,'av-lg')}<div class="profile-av-actions"><button onclick="document.getElementById('avUp').click()">更换头像</button>${currentUser.avatar?'<button onclick="removeAvatar()">移除头像</button>':''}<input type="file" id="avUp" accept="image/*" style="display:none" onchange="uploadAvatar(this)"></div></div>`;
+  h+=`<label>昵称</label><input id="profName" value="${esc(currentUser.displayName)}" maxlength="20"><div class="modal-btns"><button class="cancel" onclick="closeModal('modalProfile')">取消</button><button class="confirm" onclick="saveProfile()">保存</button></div>`;
+  h+=`<div class="profile-section"><h4>修改密码</h4><label>新密码</label><input type="password" id="profPw" placeholder="至少6位"><div class="modal-btns"><button class="blue" onclick="changePw()">修改</button></div></div><div class="err-text" id="profErr" style="display:none"></div></div></div>`;
+  document.getElementById("modals").innerHTML=h;
+}
+async function uploadAvatar(i){const f=i.files[0];if(!f)return;if(f.size>100*1024){showToast("头像≤100KB");return}const fd=new FormData();fd.append("avatar",f);try{const d=await fetch("/api/auth/profile",{method:"POST",headers:{"x-token":currentUser.token},body:fd}).then(r=>r.json().then(j=>r.ok?j:Promise.reject(j)));currentUser.avatar=d.avatar;localStorage.setItem("auth",JSON.stringify(currentUser));showProfile();renderHeader();showToast("已更新")}catch(e){showToast(e.error||"失败")}}
+async function removeAvatar(){const fd=new FormData();fd.append("removeAvatar","true");try{await fetch("/api/auth/profile",{method:"POST",headers:{"x-token":currentUser.token},body:fd}).then(r=>r.json().then(j=>r.ok?j:Promise.reject(j)));currentUser.avatar=null;localStorage.setItem("auth",JSON.stringify(currentUser));showProfile();renderHeader()}catch{}}
+async function saveProfile(){const n=document.getElementById("profName").value.trim();if(!n)return;const fd=new FormData();fd.append("displayName",n);try{const d=await fetch("/api/auth/profile",{method:"POST",headers:{"x-token":currentUser.token},body:fd}).then(r=>r.json().then(j=>r.ok?j:Promise.reject(j)));currentUser.displayName=d.displayName;localStorage.setItem("auth",JSON.stringify(currentUser));closeModal("modalProfile");renderHeader();loadMessages();showToast("已保存")}catch(e){document.getElementById("profErr").textContent=e.error;document.getElementById("profErr").style.display=""}}
+async function changePw(){const p=document.getElementById("profPw").value;if(!p||p.length<6){document.getElementById("profErr").textContent="至少6位";document.getElementById("profErr").style.display="";return}try{await apiFetch("/api/auth/password",{method:"POST",headers:{"Content-Type":"application/json","x-token":currentUser.token},body:JSON.stringify({password:p})});document.getElementById("profPw").value="";showToast("密码已修改")}catch(e){document.getElementById("profErr").textContent=e.error;document.getElementById("profErr").style.display=""}}
+
+// Board
+function renderBoard(){
+  let h=`<div class="compose"><div class="compose-row">${makeAv(currentUser.displayName,currentUser.avatar)}<span style="font-size:14px;font-weight:500">${esc(currentUser.displayName)}</span><select class="c-sel" id="selectMode" onchange="onModeChange()"><option value="public">公开</option><option value="anonymous">匿名</option></select></div>`;
+  h+=`<textarea id="inputText" placeholder="写点什么..."></textarea><div class="compose-actions"><div style="display:flex;align-items:center;gap:6px"><label class="img-label" id="imgLabel">+ <span id="imgLabelText">图片</span><input type="file" accept="image/*" id="inputFile" onchange="onFileChange()" style="display:none"></label><button style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);display:none" id="imgClear" onclick="clearImage()">✕</button></div><button class="s-btn" id="submitBtn" onclick="submitMessage()">发送</button></div>`;
+  h+=`<div class="img-preview" id="imgPreview" style="display:none"><img id="previewImg"></div><div class="anon-hint" id="anonHint" style="display:none">匿名留言仅我可见</div></div>`;
+  h+=`<div class="stats" id="stats"></div><div class="sort-bar"><span class="sort-label">排序</span>`;
+  [["newest","最新"],["oldest","最早"],["most_liked","最热"],["least_liked","最冷"]].forEach(([k,v])=>h+=`<button class="sort-btn ${sortMode===k?'active':''}" data-sort="${k}" onclick="setSort('${k}')">${v}</button>`);
+  h+=`</div><div id="msgArea"></div>`;
+  document.getElementById("main").innerHTML=h;loadMessages();
+}
+
+function loadMessages(){isLoading=true;renderLoading();const u=isAdmin?"/api/messages?admin="+encodeURIComponent(adminPw):"/api/messages";fetch(u).then(r=>r.json()).then(d=>{allMessages=d.messages||[];isLoading=false;renderMessages();loadStats()}).catch(()=>{isLoading=false;renderMessages()})}
+function loadStats(){fetch("/api/stats").then(r=>r.json()).then(s=>{let h=`公开 <b>${s.public}</b>`;if(isAdmin)h+=`&emsp;匿名 <b>${s.anonymous}</b>`;h+=`&emsp;总计 <b>${s.total}</b>`;const el=document.getElementById("stats");if(el)el.innerHTML=h}).catch(()=>{})}
+function renderLoading(){const a=document.getElementById("msgArea");if(a)a.innerHTML='<div class="loading"><div class="spinner"></div><span style="font-size:13px;color:var(--text2)">加载中...</span></div>'}
+function setSort(m){sortMode=m;document.querySelectorAll(".sort-btn").forEach(b=>b.classList.toggle("active",b.dataset.sort===m));renderMessages()}
+
+function renderMessages(){
+  const area=document.getElementById("msgArea");if(!area||isLoading)return;
+  if(!allMessages.length){area.innerHTML='<div class="empty"><p>还没有留言，来写第一条吧</p></div>';return}
+  const pinned=allMessages.filter(m=>m.pinned),rest=allMessages.filter(m=>!m.pinned);
+  const sorted=[...rest].sort((a,b)=>{if(sortMode==="newest")return(b.timestamp||0)-(a.timestamp||0);if(sortMode==="oldest")return(a.timestamp||0)-(b.timestamp||0);if(sortMode==="most_liked"){const al=(a.reactions||[]).length,bl=(b.reactions||[]).length;return bl-al}if(sortMode==="least_liked"){const al=(a.reactions||[]).length,bl=(b.reactions||[]).length;return al-bl}return 0});
+  const display=[...pinned,...sorted];
+
+  let h='<div class="msg-list">';
+  display.forEach((m,i)=>{
+    const a=m.mode==="anonymous",isMine=currentUser&&m.user_id===currentUser.id;
+    const reactions=m.reactions||[],replies=m.replies||[];
+    // Group reactions by emoji
+    const rxGroup={};reactions.forEach(r=>{if(!rxGroup[r.emoji])rxGroup[r.emoji]={count:0,mine:false};rxGroup[r.emoji].count++;if(r.user_id===currentUser?.id)rxGroup[r.emoji].mine=true});
+
+    h+=`<div class="msg-card ${a?'anon':''} ${m.pinned?'pinned':''}" style="animation-delay:${Math.min(i*.03,.3)}s">`;
+    if(m.image)h+=`<div class="msg-img" onclick="openLightbox('${esc(m.image)}')"><img src="${esc(m.image)}" loading="lazy"></div>`;
+    h+=`<div class="msg-body"><div class="msg-top"><div class="msg-author">`;
+    if(!a||isAdmin)h+=makeAv(m.name,m.avatar,'av-sm');
+    h+=`<span class="msg-name">${a?(isAdmin?esc(m.name)+'<span class="badge">匿名</span>':'匿名'):esc(m.name)}</span>`;
+    if(m.pinned)h+=`<span class="pin-tag">📌 置顶</span>`;
+    h+=`</div><span class="msg-time">${esc(m.time)}</span></div><div class="msg-text">${esc(m.text)}</div></div>`;
+
+    // Reaction pills
+    if(Object.keys(rxGroup).length){h+=`<div class="msg-reactions">`;for(const[em,d]of Object.entries(rxGroup))h+=`<span class="rx-pill ${d.mine?'mine':''}" onclick="doReact('${m.id}','${em}')">${em}<span class="rx-count">${d.count}</span></span>`;h+=`</div>`}
+
+    // Actions
+    h+=`<div class="msg-actions">`;
+    if(!isMine){h+=`<button class="react-trigger" onclick="toggleReactBar(event,'${m.id}')">😊</button>`;h+=`<div class="react-bar" id="rb-${m.id}">${EMOJIS.map(e=>`<button onclick="doReact('${m.id}','${e}')">${e}</button>`).join('')}</div>`}
+    h+=`<button class="act-btn" onclick="focusReply('${m.id}')">${RI}<span>${replies.length||''}</span></button>`;
+    h+=`<span class="act-right">`;
+    if(isAdmin)h+=`<button class="pin-btn" onclick="togglePin('${m.id}')">${m.pinned?'取消置顶':'置顶'}</button>`;
+    if(isMine||isAdmin)h+=`<button class="del-btn" onclick="deleteMsg('${m.id}','${isMine}')">删除</button>`;
+    h+=`</span></div>`;
+
+    if(replies.length){h+=`<div class="replies">`;replies.forEach(r=>{const myR=currentUser&&r.user_id===currentUser.id;h+=`<div class="reply-item"><span class="r-author">${makeAv(r.name,r.avatar,'av-sm')}<span class="r-name">${esc(r.name)}</span></span><span class="r-text">${esc(r.text)}</span><span class="r-time">${esc(r.time)}</span>`;if(myR||isAdmin)h+=`<button class="r-del" onclick="deleteReply('${r.id}','${myR}')">删除</button>`;h+=`</div>`});h+=`</div>`}
+    h+=`<div class="reply-box"><input id="reply-${m.id}" placeholder="回复..." onkeydown="if(event.key==='Enter')sendReply('${m.id}')"><button onclick="sendReply('${m.id}')">发送</button></div></div>`;
+  });
+  h+='</div>';area.innerHTML=h;
+}
+
+// Reactions
+function toggleReactBar(e,id){e.stopPropagation();document.querySelectorAll(".react-bar.show").forEach(b=>{if(b.id!=="rb-"+id)b.classList.remove("show")});document.getElementById("rb-"+id)?.classList.toggle("show")}
+document.addEventListener("click",()=>document.querySelectorAll(".react-bar.show").forEach(b=>b.classList.remove("show")));
+function doReact(id,emoji){document.querySelectorAll(".react-bar.show").forEach(b=>b.classList.remove("show"));apiFetch(`/api/messages/${id}/react`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({emoji})}).then(()=>loadMessages()).catch(e=>showToast(e.error||"失败"))}
+
+// Lightbox
+function openLightbox(src){document.getElementById("lightbox").innerHTML=`<div class="lightbox" onclick="closeLightbox()"><button class="lb-close" onclick="closeLightbox()">✕</button><img src="${src}"></div>`}
+function closeLightbox(){document.getElementById("lightbox").innerHTML=""}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeLightbox()});
+
+// Actions
+function focusReply(id){document.getElementById("reply-"+id)?.focus()}
+function sendReply(id){const input=document.getElementById("reply-"+id),t=input.value.trim();if(!t)return;apiFetch(`/api/messages/${id}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})}).then(()=>{input.value="";loadMessages()}).catch(e=>showToast(e.error||"失败"))}
+function deleteMsg(id,isMine){if(!confirm("确定删除？"))return;const mine=isMine==='true';fetch("/api/messages/"+id,{method:"DELETE",headers:{"Content-Type":"application/json","x-token":currentUser?.token||""},body:JSON.stringify(isAdmin&&!mine?{password:adminPw}:{})}).then(r=>r.json()).then(()=>{showToast("已删除");loadMessages()}).catch(()=>showToast("失败"))}
+function deleteReply(id,isMine){if(!confirm("确定删除？"))return;const mine=isMine==='true';fetch("/api/replies/"+id,{method:"DELETE",headers:{"Content-Type":"application/json","x-token":currentUser?.token||""},body:JSON.stringify(isAdmin&&!mine?{password:adminPw}:{})}).then(r=>r.json()).then(()=>{showToast("已删除");loadMessages()}).catch(()=>showToast("失败"))}
+function togglePin(id){fetch(`/api/messages/${id}/pin`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:adminPw})}).then(r=>r.json()).then(d=>{showToast(d.pinned?"已置顶":"已取消置顶");loadMessages()}).catch(()=>showToast("失败"))}
+
+// Compose
+function onModeChange(){const m=document.getElementById("selectMode").value;document.getElementById("anonHint").style.display=m==="anonymous"?"":"none";document.getElementById("selectMode").classList.toggle("anon",m==="anonymous")}
+function onFileChange(){const f=document.getElementById("inputFile").files[0];if(!f)return;if(f.size>800*1024){showToast("图片≤800KB");document.getElementById("inputFile").value="";return}const r=new FileReader();r.onload=e=>{document.getElementById("previewImg").src=e.target.result;document.getElementById("imgPreview").style.display="";document.getElementById("imgLabelText").textContent="已选";document.getElementById("imgLabel").classList.add("has");document.getElementById("imgClear").style.display=""};r.readAsDataURL(f)}
+function clearImage(){document.getElementById("inputFile").value="";document.getElementById("imgPreview").style.display="none";document.getElementById("imgLabelText").textContent="图片";document.getElementById("imgLabel").classList.remove("has");document.getElementById("imgClear").style.display="none"}
+function submitMessage(){const t=document.getElementById("inputText").value.trim(),m=document.getElementById("selectMode").value,fi=document.getElementById("inputFile");if(!t){showToast("请写点什么");return}const btn=document.getElementById("submitBtn");btn.disabled=true;btn.textContent="发送中...";const fd=new FormData();fd.append("text",t);fd.append("mode",m);if(fi.files[0])fd.append("image",fi.files[0]);fetch("/api/messages",{method:"POST",headers:{"x-token":currentUser.token},body:fd}).then(r=>r.json().then(j=>r.ok?j:Promise.reject(j))).then(()=>{document.getElementById("inputText").value="";clearImage();document.getElementById("selectMode").value="public";onModeChange();showToast("已发送");loadMessages()}).catch(e=>showToast(e.error||"发送失败")).finally(()=>{btn.disabled=false;btn.textContent="发送"})}
+
+// Admin
+function toggleAdmin(){if(isAdmin){isAdmin=false;adminPw="";renderHeader();loadMessages()}else showAdminModal()}
+function showAdminModal(){document.getElementById("modals").innerHTML=`<div class="modal-bg" id="modalAdmin" onclick="closeModal('modalAdmin')"><div class="modal" onclick="event.stopPropagation()"><h3>管理员验证</h3><p style="font-size:13px;color:var(--text2);margin-bottom:18px">输入密码</p><input type="password" id="adminPwInput" placeholder="密码" onkeydown="if(event.key==='Enter')doAdminLogin()"><div class="err-text" id="adminErr" style="display:none">密码不正确</div><div class="modal-btns"><button class="cancel" onclick="closeModal('modalAdmin')">取消</button><button class="confirm" onclick="doAdminLogin()">确认</button></div></div></div>`;setTimeout(()=>document.getElementById("adminPwInput").focus(),100)}
+function doAdminLogin(){const p=document.getElementById("adminPwInput").value;fetch("/api/admin/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:p})}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(()=>{isAdmin=true;adminPw=p;closeModal("modalAdmin");renderHeader();loadMessages()}).catch(()=>document.getElementById("adminErr").style.display="")}
+function closeModal(id){const el=document.getElementById(id);if(el)el.remove();else document.getElementById("modals").innerHTML=""}
+function showToast(m){const t=document.getElementById("toast");t.textContent=m;t.style.display="";setTimeout(()=>t.style.display="none",2200)}
+</script>
+</body>
+</html>
